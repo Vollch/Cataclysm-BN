@@ -1385,6 +1385,12 @@
   },
   {
     "type": "keybinding",
+    "id": "EDITMAP_EXPORT",
+    "name": "Export mapgen",
+    "bindings": [ { "input_method": "keyboard", "key": "e" } ]
+  },
+  {
+    "type": "keybinding",
     "id": "EDITMAP_TAB",
     "name": "Switch to move point / confirm",
     "bindings": [ { "input_method": "keyboard", "key": "TAB" } ]

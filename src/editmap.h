@@ -67,6 +67,7 @@ class editmap
         vehicle *mapgen_veh_query( const tripoint_abs_omt &omt_tgt );
         bool mapgen_veh_destroy( const tripoint_abs_omt &omt_tgt, vehicle *car_target );
         void mapgen_retarget();
+        void mapgen_export();
         int select_shape( shapetype shape, int mode = -1 );
 
         void update_fmenu_entry( uilist &fmenu, field &field, const field_type_id &idx );

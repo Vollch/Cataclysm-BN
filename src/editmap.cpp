@@ -26,6 +26,7 @@
 #include "fstream_utils.h"
 #include "game.h"
 #include "game_constants.h"
+#include "json.h"
 #include "input.h"
 #include "int_id.h"
 #include "item.h"
@@ -33,6 +34,7 @@
 #include "map.h"
 #include "map_iterator.h"
 #include "mapdata.h"
+#include "messages.h"
 #include "monster.h"
 #include "mtype.h"
 #include "npc.h"
@@ -2063,6 +2065,147 @@ void editmap::mapgen_retarget()
     blink = false;
 }
 
+void editmap::mapgen_export()
+{
+    map &here = get_map();
+
+    real_coords tc{ here.getabs( target.xy() ) };
+    const tripoint origin{ here.getlocal( tc.begin_om_pos() ), target.z };
+
+    const std::string export_name = origin.to_string();
+    const std::string export_dest = string_format( "save/%s.json", export_name );
+
+    using tf_pair = std::pair<ter_id, furn_id>;
+
+    // Get all ters and furns
+    std::map<ter_id, int> ters;
+    std::map<tf_pair, int> ter_furns;
+    for( int y = 0; y < SEEY * 2; y++ ) {
+        for( int x = 0; x < SEEX * 2; x++ ) {
+            const tripoint p = origin + point( x, y );
+            const ter_id t = here.ter( p );
+            const furn_id f = here.furn( p );
+            const tf_pair tf = std::make_pair( t, f );
+            ters[t]++;
+            ter_furns[tf]++;
+        }
+    }
+
+    // Remember most common ter as background
+    const ter_id bg = std::max_element( ters.begin(), ters.end(),
+    []( const auto & lhs, const auto & rhs ) {
+        return lhs.second < rhs.second;
+    } )->first;
+
+    // Sort ter furn pairs to give most common ones matching symbols
+    std::vector<tf_pair> sorted;
+    std::transform( ter_furns.begin(), ter_furns.end(), std::back_inserter( sorted ),
+    []( const std::pair<tf_pair, int> &pair ) {
+        return pair.first;
+    } );
+    std::sort( sorted.begin(), sorted.end(),
+    [&ter_furns]( const tf_pair & lhs, const tf_pair & rhs ) {
+        return ter_furns[lhs] > ter_furns[rhs];
+    } );
+
+    static const std::string lets =
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!#$%&'()*+,-./:;<=>?@[]^_`{|}~";
+    std::set<char> used = { '"', '\\', ' ' };
+
+    // Assign symbols to ter furn pairs
+    std::map<tf_pair, char> tf_char;
+    for( const tf_pair &tf : sorted ) {
+        char next = 0;
+
+        if( tf.first == bg && tf.second == f_null ) {
+            continue;
+        }
+
+        if( tf.second != f_null && !used.count( tf.second->symbol() ) ) {
+            next = tf.second->symbol();
+        } else if( tf.first != bg && !used.count( tf.first->symbol() ) ) {
+            next = tf.first->symbol();
+        } else {
+            for( char c : lets ) {
+                if( !used.count( c ) ) {
+                    next = c;
+                    break;
+                }
+            }
+        }
+
+        if( next ) {
+            tf_char[tf] = next;
+            used.insert( next );
+        }
+    }
+
+    // Build json
+    std::ostringstream os;
+    JsonOut jsout( os, true );
+    jsout.start_array( true );
+
+    jsout.start_object( true );
+    jsout.member( "type", "mapgen" );
+    jsout.member( "method", "json" );
+    jsout.member( "om_terrain", export_name );
+
+    jsout.member( "object" );
+    jsout.start_object( true );
+    jsout.member( "fill_ter", bg->id.str() );
+
+    jsout.member( "rows" );
+    jsout.start_array( true );
+    for( int y = 0; y < SEEY * 2; y++ ) {
+        std::string row;
+        for( int x = 0; x < SEEX * 2; x++ ) {
+            const tripoint p = origin + point( x, y );
+            const tf_pair tf = std::make_pair( here.ter( p ), here.furn( p ) );
+
+            row += tf_char.count( tf ) ? tf_char[tf] : ' ';
+        }
+        jsout.write( row );
+    }
+    jsout.end_array(); // rows
+
+    jsout.member( "terrain" );
+    jsout.start_object( true );
+    for( const auto &tf : tf_char ) {
+        const ter_id t = tf.first.first;
+        if( t != bg ) {
+            jsout.member( std::string( 1, tf.second ), t->id.str() );
+        }
+    }
+    jsout.end_object(); // terrain
+
+    jsout.member( "furniture" );
+    jsout.start_object( true );
+    for( const auto &tf : tf_char ) {
+        const furn_id f = tf.first.second;
+        if( f != f_null ) {
+            jsout.member( std::string( 1, tf.second ), f->id.str() );
+        }
+    }
+    jsout.end_object(); // furniture
+    jsout.end_object(); // object
+    jsout.end_object(); // mapgen
+
+    jsout.start_object( true );
+    jsout.member( "type", "overmap_terrain" );
+    jsout.member( "id", export_name );
+    jsout.member( "copy-from", "field" );
+    jsout.end_object(); // overmap_terrain
+
+    jsout.end_array();
+    std::string save = os.str();
+
+    write_to_file( export_dest, [&]( std::ostream & fout ) {
+        fout << save;
+    }, nullptr );
+
+    Messages::add_msg( string_format( _( "Mapgen exported to %s" ), export_dest ) );
+}
+
 /*
  * apply mapgen to a temporary map and overlay over terrain window, optionally regenerating, rotating, and applying to the real in-game map
  */
@@ -2078,6 +2221,7 @@ void editmap::edit_mapgen()
     gmenu.input_category = "EDIT_MAPGEN";
     gmenu.additional_actions = {
         { "EDITMAP_MOVE", translation() },
+        { "EDITMAP_EXPORT", translation() },
         { "HELP_KEYBINDINGS", translation() } // to refresh the view after exiting from keybindings
     };
     gmenu.allow_additional = true;
@@ -2125,6 +2269,7 @@ void editmap::edit_mapgen()
         input_context ctxt( gmenu.input_category );
         info_txt_curr = string_format( pgettext( "keybinding descriptions", "%s, %s, %s" ),
                                        ctxt.describe_key_and_name( "EDITMAP_MOVE" ),
+                                       ctxt.describe_key_and_name( "EDITMAP_EXPORT" ),
                                        ctxt.describe_key_and_name( "CONFIRM" ),
                                        ctxt.describe_key_and_name( "QUIT" ) );
         info_title_curr = pgettext( "map generator", "Mapgen stamp" );
@@ -2140,6 +2285,8 @@ void editmap::edit_mapgen()
         } else if( gmenu.ret == UILIST_ADDITIONAL ) {
             if( gmenu.ret_act == "EDITMAP_MOVE" ) {
                 mapgen_retarget();
+            } else if( gmenu.ret_act == "EDITMAP_EXPORT" ) {
+                mapgen_export();
             }
         }
     } while( gmenu.ret != UILIST_CANCEL );
