@@ -48,7 +48,7 @@
     "method": "json",
     "om_terrain": [ "bridge_under" ],
     "object": {
-      "predecessor_mapgen": "river_shore",
+      "predecessor_mapgen": "river_bank",
       "rows": [
         "        s######s        ",
         "        ss####ss        ",
@@ -124,7 +124,7 @@
     "//": "Legacy bridge that blocks river",
     "om_terrain": [ "bridge" ],
     "object": {
-      "predecessor_mapgen": "river_shore",
+      "predecessor_mapgen": "river_bank",
       "rows": [
         "  =_................_=  ",
         "  =_.......::......._=  ",
@@ -164,7 +164,7 @@
     "method": "json",
     "om_terrain": [ "bridgehead_ground" ],
     "object": {
-      "predecessor_mapgen": "river_shore",
+      "predecessor_mapgen": "river_bank",
       "rows": [
         "  =_................_=  ",
         "  =_.......::......._=  ",

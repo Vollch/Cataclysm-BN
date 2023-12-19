@@ -109,10 +109,10 @@ building_gen_pointer get_mapgen_cfunction( const std::string &ident )
             { "railroad_four_way", &mapgen_railroad },
             { "railroad_bridge",   &mapgen_railroad_bridge },
             { "river_center", &mapgen_river_center },
-            { "river_curved_not", &mapgen_river_curved_not },
-            { "river_straight",   &mapgen_river_straight },
-            { "river_curved",     &mapgen_river_curved },
-            { "river_shore",      &mapgen_river_shore },
+            { "river_curved_not", &mapgen_river_bank },
+            { "river_straight",   &mapgen_river_bank },
+            { "river_curved",     &mapgen_river_bank },
+            { "river_bank",       &mapgen_river_bank },
             { "parking_lot",      &mapgen_parking_lot },
             { "cavern", &mapgen_cavern },
             { "open_air", &mapgen_open_air },
@@ -1611,101 +1611,7 @@ void mapgen_river_center( mapgendata &dat )
     fill_background( &dat.m, t_water_moving_dp );
 }
 
-void mapgen_river_curved_not( mapgendata &dat )
-{
-    map *const m = &dat.m;
-    fill_background( m, t_water_moving_dp );
-    // this is not_ne, so deep on all sides except ne corner, which is shallow
-    // shallow is 20,0, 23,4
-    int north_edge = rng( 16, 18 );
-    int east_edge = rng( 4, 8 );
-
-    for( int x = north_edge; x < SEEX * 2; x++ ) {
-        for( int y = 0; y < east_edge; y++ ) {
-            int circle_edge = ( ( SEEX * 2 - x ) * ( SEEX * 2 - x ) ) + ( y * y );
-            if( circle_edge <= 8 ) {
-                m->ter_set( point( x, y ), grass_or_dirt() );
-            } else if( circle_edge == 9 && one_in( 25 ) ) {
-                m->ter_set( point( x, y ), clay_or_sand() );
-            } else if( circle_edge <= 36 ) {
-                m->ter_set( point( x, y ), t_water_moving_sh );
-            }
-        }
-    }
-
-    if( dat.terrain_type() == "river_c_not_se" ) {
-        m->rotate( 1 );
-    }
-    if( dat.terrain_type() == "river_c_not_sw" ) {
-        m->rotate( 2 );
-    }
-    if( dat.terrain_type() == "river_c_not_nw" ) {
-        m->rotate( 3 );
-    }
-}
-
-void mapgen_river_straight( mapgendata &dat )
-{
-    map *const m = &dat.m;
-    fill_background( m, t_water_moving_dp );
-
-    for( int x = 0; x < SEEX * 2; x++ ) {
-        int ground_edge = rng( 1, 3 );
-        int shallow_edge = rng( 4, 6 );
-        line( m, grass_or_dirt(), point( x, 0 ), point( x, ground_edge ) );
-        if( one_in( 25 ) ) {
-            m->ter_set( point( x, ++ground_edge ), clay_or_sand() );
-        }
-        line( m, t_water_moving_sh, point( x, ++ground_edge ), point( x, shallow_edge ) );
-    }
-
-    if( dat.terrain_type() == "river_east" ) {
-        m->rotate( 1 );
-    }
-    if( dat.terrain_type() == "river_south" ) {
-        m->rotate( 2 );
-    }
-    if( dat.terrain_type() == "river_west" ) {
-        m->rotate( 3 );
-    }
-}
-
-void mapgen_river_curved( mapgendata &dat )
-{
-    map *const m = &dat.m;
-    fill_background( m, t_water_moving_dp );
-    // NE corner deep, other corners are shallow.  do 2 passes: one x, one y
-    for( int x = 0; x < SEEX * 2; x++ ) {
-        int ground_edge = rng( 1, 3 );
-        int shallow_edge = rng( 4, 6 );
-        line( m, grass_or_dirt(), point( x, 0 ), point( x, ground_edge ) );
-        if( one_in( 25 ) ) {
-            m->ter_set( point( x, ++ground_edge ), clay_or_sand() );
-        }
-        line( m, t_water_moving_sh, point( x, ++ground_edge ), point( x, shallow_edge ) );
-    }
-    for( int y = 0; y < SEEY * 2; y++ ) {
-        int ground_edge = rng( 19, 21 );
-        int shallow_edge = rng( 16, 18 );
-        line( m, grass_or_dirt(), point( ground_edge, y ), point( SEEX * 2 - 1, y ) );
-        if( one_in( 25 ) ) {
-            m->ter_set( point( --ground_edge, y ), clay_or_sand() );
-        }
-        line( m, t_water_moving_sh, point( shallow_edge, y ), point( --ground_edge, y ) );
-    }
-
-    if( dat.terrain_type() == "river_se" ) {
-        m->rotate( 1 );
-    }
-    if( dat.terrain_type() == "river_sw" ) {
-        m->rotate( 2 );
-    }
-    if( dat.terrain_type() == "river_nw" ) {
-        m->rotate( 3 );
-    }
-}
-
-void mapgen_river_shore( mapgendata &dat )
+void mapgen_river_bank( mapgendata &dat )
 {
     map *const m = &dat.m;
     fill_background( m, t_water_moving_dp );
@@ -1718,44 +1624,76 @@ void mapgen_river_shore( mapgendata &dat )
                                dat.t_nesw[dir]->is_lake_shore() );
     }
 
-    // Draw shores on sides
-    for( int dir = 0; dir < 4; dir++ ) {
-        if( ground_neswx[dir] ) {
-            m->rotate( 4 - dir );
-            for( int x = 0; x < SEEX * 2; x++ ) {
-                int ground_edge = rng( 1, 3 );
-                int shallow_edge = rng( 4, 6 );
-                line( m, grass_or_dirt(), point( x, 0 ), point( x, ground_edge ) );
-                if( one_in( 25 ) ) {
-                    m->ter_set( point( x, ++ground_edge ), clay_or_sand() );
-                }
-                line( m, t_water_moving_sh, point( x, ++ground_edge ), point( x, shallow_edge ) );
-            }
-            m->rotate( dir );
-        }
-    }
+    static constexpr int max = SEEX * 2 - 1;
 
-    // Bite corner, unless there's a shore already
-    for( int dir = 0; dir < 4; dir++ ) {
-        if( ground_neswx[dir + 4] && !ground_neswx[dir] && !ground_neswx[( dir + 1 ) % 4] ) {
-            m->rotate( 4 - dir );
-            int north_edge = rng( 16, 18 );
-            int east_edge = rng( 4, 8 );
-            for( int x = north_edge; x < SEEX * 2; x++ ) {
-                for( int y = 0; y < east_edge; y++ ) {
-                    int circle_edge = ( ( SEEX * 2 - x ) * ( SEEX * 2 - x ) ) + ( y * y );
-                    if( circle_edge <= 8 ) {
-                        m->ter_set( point( x, y ), grass_or_dirt() );
-                    } else if( circle_edge == 9 && one_in( 25 ) ) {
-                        m->ter_set( point( x, y ), clay_or_sand() );
-                    } else if( circle_edge <= 36 ) {
-                        m->ter_set( point( x, y ), t_water_moving_sh );
-                    }
+    const auto draw_side = [&]( int side, point origin, point step_over, point step_in ) {
+        if( !ground_neswx[side] ) {
+            return;
+        }
+        for( int i = 0; i <= max; i++ ) {
+            point cur = origin + ( step_over * i );
+            int ground_edge = rng( 1, 3 );
+            int shallow_edge = rng( 4, 6 );
+            for( int j = 0; j <= shallow_edge; j++ ) {
+                if( j <= ground_edge ) {
+                    m->ter_set( cur, grass_or_dirt() );
+                } else if( j == ground_edge + 1 && j < shallow_edge && one_in( 25 ) ) {
+                    m->ter_set( cur, clay_or_sand() );
+                } else {
+                    m->ter_set( cur, t_water_moving_sh );
+                }
+                cur += step_in;
+            }
+        }
+    };
+
+    const auto draw_corner = [&]( int side, point origin, point step_over, point step_in ) {
+        const bool side_a = ground_neswx[side - 4];
+        const bool side_b = ground_neswx[( side - 3 ) % 4];
+        if( !ground_neswx[side] || side_a != side_b ) {
+            return;
+        }
+
+        const bool inner_corner = side_a && side_b;
+
+        for( int i = 0; i <= 6; i++ ) {
+            point over = origin + ( step_over * i );
+            for( int j = 0; j <= 6; j++ ) {
+                point cur = over + ( step_in * j );
+
+                int circle_edge = ( i * i ) + ( j * j );
+                // 0,  1,  4,  9,  16, 25, 36
+                // 1,  2,  5,  10, 17, 26, 37
+                // 4,  5,  8,  13, 20, 29
+                // 9,  10, 13, 18, 25, 34
+                // 16, 17, 20, 25, 32
+                // 25, 26, 29, 34
+                // 36, 37
+
+                if( circle_edge > 37 ) {
+                    continue;
+                } else if( circle_edge <= 5 || inner_corner ) {
+                    m->ter_set( cur, grass_or_dirt() );
+                } else if( circle_edge <= 10 && one_in( 25 ) ) {
+                    m->ter_set( cur, clay_or_sand() );
+                } else if( circle_edge <= 26 || one_in( 3 ) ) {
+                    m->ter_set( cur, t_water_moving_sh );
                 }
             }
-            m->rotate( dir );
         }
-    }
+    };
+
+    // Draw shores on sides
+    draw_side( 0, { 0,   0   }, {  1,  0 }, {  0,  1 } );
+    draw_side( 1, { max, 0   }, {  0,  1 }, { -1,  0 } );
+    draw_side( 2, { max, max }, { -1,  0 }, {  0, -1 } );
+    draw_side( 3, { 0,   max }, {  0, -1 }, {  1,  0 } );
+
+    // Bite or fill corners
+    draw_corner( 4, { max, 0   }, { -1,  0 }, {  0,  1 } );
+    draw_corner( 5, { max, max }, {  0, -1 }, { -1,  0 } );
+    draw_corner( 6, { 0,   max }, {  1,  0 }, {  0, -1 } );
+    draw_corner( 7, { 0,   0   }, {  0,  1 }, {  1,  0 } );
 }
 
 void mapgen_parking_lot( mapgendata &dat )

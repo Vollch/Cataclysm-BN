@@ -34,7 +34,19 @@
       "ants_larvae": "ants_larvae_north",
       "ants_larvae_acid": "acid_ants_larvae_north",
       "ants_queen": "ants_queen_north",
-      "ants_queen_acid": "acid_ants_queen_north"
+      "ants_queen_acid": "acid_ants_queen_north",
+      "river_c_not_ne": "river_bank",
+      "river_c_not_nw": "river_bank",
+      "river_c_not_se": "river_bank",
+      "river_c_not_sw": "river_bank",
+      "river_ne": "river_bank",
+      "river_nw": "river_bank",
+      "river_se": "river_bank",
+      "river_sw": "river_bank",
+      "river_north": "river_bank",
+      "river_west": "river_bank",
+      "river_south": "river_bank",
+      "river_east": "river_bank"
     }
   },
   {

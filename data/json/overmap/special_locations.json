@@ -33,16 +33,8 @@
     "type": "overmap_location",
     "id": "water",
     "terrains": [
-      "river",
-      "river_center",
-      "river_c_not_ne",
-      "river_c_not_nw",
-      "river_c_not_se",
-      "river_c_not_sw",
-      "river_ne",
-      "river_se",
-      "river_sw",
-      "river_nw"
+      "river_bank",
+      "river_center"
     ]
   },
   {
